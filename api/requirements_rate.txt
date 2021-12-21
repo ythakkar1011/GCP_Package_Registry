@@ -1,0 +1,12 @@
+backports-datetime-fromisoformat==1.0.0
+certifi==2021.5.30
+charset-normalizer==2.0.6
+coverage==6.0
+gitdb==4.0.7
+GitPython==3.1.0
+idna==3.2
+python-dotenv==0.19.0
+requests==2.26.0
+smmap==4.0.0
+typing-extensions==3.10.0.2
+urllib3==1.26.7

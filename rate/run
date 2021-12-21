@@ -1,0 +1,74 @@
+#!/bin/bash
+
+# Check to make sure there's only one cli argument.
+if [[ $# -ne 1 ]]; then
+    printf "Error! Incorrect number of input arguments specified. Must be one argument.\n" >/dev/stderr
+    exit 1
+fi
+
+USER_ARG=$1 # Set to a descriptive variable.
+
+# Case 1: Install dependencies.
+if [[ "$USER_ARG" == "install" ]]; then
+    python3 -m venv venv
+    source venv/bin/activate
+    pip install -r requirements.txt
+    
+    if [[ $? -eq 1 ]]; then
+        printf "Failure when installing pip requirements file. \nIf you are in a virtual environment, please check that your pyvenv.cfg file has 'include-system-site-packages' set to 'true'.\n" >/dev/stderr
+        exit 1
+    fi
+    
+    printf "Requirements install successful!\n"
+    deactivate
+    exit 0
+fi
+
+# Case 2: Test Suite
+if [[ "$USER_ARG" == "test" ]]; then
+    source venv/bin/activate
+
+    TEST_OUTPUT=$(coverage run -m unittest test_handler.py 2>&1)
+    COV_OUTPUT=$(coverage report --include=./*.py 2>&1)
+    
+    TOTAL_CASES_REGEX='Ran ([0-9]+) tests'
+    FAILED_REGEX='failures=([0-9]+)'
+    COV_REGEX='TOTAL +[0-9]+ +[0-9]+ +([0-9]+)'
+
+    FAILED_CASES=0
+    TOTAL_CASES=0
+    COVERAGE=0
+
+    if [[ $TEST_OUTPUT =~ $TOTAL_CASES_REGEX ]]; then
+        TOTAL_CASES=${BASH_REMATCH[1]}
+    fi
+
+    if [[ $TEST_OUTPUT =~ $FAILED_REGEX ]]; then
+        FAILED_CASES=${BASH_REMATCH[1]}
+    fi
+
+    if [[ $COV_OUTPUT =~ $COV_REGEX ]]; then
+        COVERAGE=${BASH_REMATCH[1]}
+    fi
+
+    NUM_PASSED=$((TOTAL_CASES - FAILED_CASES))
+
+    echo "$NUM_PASSED/$TOTAL_CASES test cases passed. $COVERAGE% line coverage achieved."
+
+    deactivate
+    exit 0
+fi
+
+# Case 3: If it is not 'install' or 'run', user must have supplied a URL File.
+
+source venv/bin/activate
+python3 main.py $USER_ARG
+if [[ $? -ne 0 ]]; then
+    printf "Error! Python program did not return succesfully.\n" >/dev/stderr
+    deactivate
+    exit 1
+fi
+
+# Everything exited correctly.
+deactivate
+exit 0

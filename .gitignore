@@ -1,0 +1,11 @@
+.env
+__pycache__/
+.vscode/
+venv
+htmlcov/
+.coverage
+test.py
+repositories/
+.pytest_cache/
+log_files/
+.DS_Store
