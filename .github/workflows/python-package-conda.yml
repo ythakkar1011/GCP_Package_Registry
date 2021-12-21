@@ -1,0 +1,88 @@
+name: Python Package using Conda
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+    
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 5 #Probably want to change to 1 at some point (or want to better specify requirements/uses)
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.10'
+    - name: Add conda to system path
+      run: |
+        # $CONDA is an environment variable pointing to the root of the miniconda directory
+        echo $CONDA/bin >> $GITHUB_PATH
+    - name: Install dependencies
+      run: |
+        conda env update --file .github/workflows/environment.yml --name base
+        conda install -c conda-forge google-cloud-firestore
+        conda install -c conda-forge google-cloud-datastore
+        conda install -c conda-forge python-dotenv
+        conda install -c conda-forge git
+        conda install -c conda-forge gitpython
+        conda install -c conda-forge backports
+        conda install -c conda-forge backports-datetime-fromisoformat
+        conda install -c conda-forge flask
+        conda install -c conda-forge flask-restful
+        conda install -c conda-forge flask-jsonpify
+        conda install -c conda-forge pyjwt
+        pip install pyrebase
+    - name: Lint with flake8
+      run: |
+        conda install flake8
+        # stop the build if there are Python syntax errors or undefined names
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+    - name: Test API with pytest
+      run: |
+        conda install pytest
+        pytest api/test_api.py
+    
+        
+    #BEGIN GOOGLE APP ENGINE DEPLOYMENT:
+    
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Deploy to App Engine
+      id: deploy
+      uses: google-github-actions/deploy-appengine@main
+      with:
+        deliverables: api/app.yaml
+        project_id: ${{ secrets.GCP_PROJECT_ID }}
+        credentials: ${{ secrets.GCP_SA_KEY }}
+
+  
+    - name: Curl Test Authenticate
+      run: curl --location --request PUT 'https://lexical-botany-331616.uc.r.appspot.com/authenticate' --data-raw '{"User":{"name":"team9","isAdmin":true},"Secret":{"password":"correcthorsebatterystaple123(!__+@**(A"}}'
+    - name: Curl Test Package Ingestion
+      run: curl --location --request POST 'https://lexical-botany-331616.uc.r.appspot.com/package' --header 'X-Authorization:eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoibmV3VXNlciIsImV4cCI6MTYzOTA2MTUxM30.sJUPl1s0_UqOjVXZbPQupLHOb7v9LORfvo17_INc__I' --data-raw '{"metadata":{"Name":"Underscore","Version":"1.0.0","ID":"underscore"},"data":{"URL":"https://github.com/jashkenas/underscore","JSProgram":"if (process.argv.length === 7) {\nconsole.log('\''Success'\'')\nprocess.exit(0)\n} else {\nconsole.log('\''Failed'\'')\nprocess.exit(1)\n}\n"}}'
+    - name: Curl Test Rate Package
+      run: curl --location --request GET 'https://lexical-botany-331616.uc.r.appspot.com/package/underscore/rate' --header 'X-Authorization:eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoibmV3VXNlciIsImV4cCI6MTYzOTA2MTUxM30.sJUPl1s0_UqOjVXZbPQupLHOb7v9LORfvo17_INc__I'
+    - name: Curl Test Get By Name
+      run: curl --location --request GET 'https://lexical-botany-331616.uc.r.appspot.com/package/byName/Underscore' --header 'X-Authorization:eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoibmV3VXNlciIsImV4cCI6MTYzOTA2MTUxM30.sJUPl1s0_UqOjVXZbPQupLHOb7v9LORfvo17_INc__I'
+    - name: Curl Test Get By Id
+      run: curl --location --request GET 'https://lexical-botany-331616.uc.r.appspot.com/package/underscore' --header 'X-Authorization:eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoibmV3VXNlciIsImV4cCI6MTYzOTA2MTUxM30.sJUPl1s0_UqOjVXZbPQupLHOb7v9LORfvo17_INc__I'
+    - name: Curl Test Delete Package by Name
+      run: curl --location --request DELETE 'https://lexical-botany-331616.uc.r.appspot.com/package/byName/Underscore' --header 'X-Authorization:eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoibmV3VXNlciIsImV4cCI6MTYzOTA2MTUxM30.sJUPl1s0_UqOjVXZbPQupLHOb7v9LORfvo17_INc__I'
+    - name: Curl Test Package Ingestion
+      run: curl --location --request POST 'https://lexical-botany-331616.uc.r.appspot.com/package' --header 'X-Authorization:eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoibmV3VXNlciIsImV4cCI6MTYzOTA2MTUxM30.sJUPl1s0_UqOjVXZbPQupLHOb7v9LORfvo17_INc__I' --data-raw '{"metadata":{"Name":"Express","Version":"1.0.0","ID":"express"},"data":{"URL":"https://github.com/expressjs/express","JSProgram":"if (process.argv.length === 7) {\nconsole.log('\''Success'\'')\nprocess.exit(0)\n} else {\nconsole.log('\''Failed'\'')\nprocess.exit(1)\n}\n"}}'
+    - name: Curl Test Delete Packge Version
+      run: curl --location --request DELETE 'https://lexical-botany-331616.uc.r.appspot.com/package/express' --header 'X-Authorization:eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoibmV3VXNlciIsImV4cCI6MTYzOTA2MTUxM30.sJUPl1s0_UqOjVXZbPQupLHOb7v9LORfvo17_INc__I'
+    - name: Curl Test Registry Reset
+      run: curl --location --request DELETE 'https://lexical-botany-331616.uc.r.appspot.com/reset' --header 'X-Authorization:eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoibmV3VXNlciIsImV4cCI6MTYzOTA2MTUxM30.sJUPl1s0_UqOjVXZbPQupLHOb7v9LORfvo17_INc__I'
+    
